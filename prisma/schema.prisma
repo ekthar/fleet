@@ -1,0 +1,115 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  owner
+  staff
+}
+
+enum VehicleStatus {
+  active
+  inactive
+}
+
+enum EmployeeStatus {
+  active
+  inactive
+}
+
+enum CommissionBase {
+  gross
+  net
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  phone        String   @unique
+  passwordHash String // bcrypt hash (owner uses full password, staff uses PIN)
+  role         UserRole
+  createdAt    DateTime @default(now())
+
+  entries Entry[] @relation("CreatedByUser")
+
+  @@map("users")
+}
+
+model Vehicle {
+  id        String        @id @default(cuid())
+  name      String
+  regNumber String        @unique
+  model     String
+  startKm   Decimal       @db.Decimal(12, 2)
+  status    VehicleStatus @default(active)
+  createdAt DateTime      @default(now())
+
+  employees Employee[]
+  entries   Entry[]
+
+  @@map("vehicles")
+}
+
+model Employee {
+  id                String         @id @default(cuid())
+  name              String
+  role              String // driver, cleaner, etc.
+  phone             String         @unique
+  assignedVehicleId String?
+  assignedVehicle   Vehicle?       @relation(fields: [assignedVehicleId], references: [id])
+  currentPercent    Decimal        @db.Decimal(5, 2) // e.g. 12.50%
+  status            EmployeeStatus @default(active)
+  createdAt         DateTime       @default(now())
+
+  rateHistory RateHistory[]
+  entries     Entry[]
+
+  @@map("employees")
+}
+
+model RateHistory {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  percent       Decimal  @db.Decimal(5, 2)
+  effectiveFrom DateTime @db.Date
+
+  @@index([employeeId, effectiveFrom])
+  @@map("rate_history")
+}
+
+model Entry {
+  id                String         @id @default(cuid())
+  date              DateTime       @db.Date
+  vehicleId         String
+  vehicle           Vehicle        @relation(fields: [vehicleId], references: [id])
+  employeeId        String?
+  employee          Employee?      @relation(fields: [employeeId], references: [id])
+  startKm           Decimal        @db.Decimal(12, 2)
+  endKm             Decimal        @db.Decimal(12, 2)
+  collection        Decimal        @db.Decimal(12, 2)
+  cng               Decimal        @db.Decimal(12, 2) @default(0)
+  maintenance       Decimal        @db.Decimal(12, 2) @default(0)
+  toll              Decimal        @db.Decimal(12, 2) @default(0)
+  uberSub           Decimal        @db.Decimal(12, 2) @default(0)
+  misc              Decimal        @db.Decimal(12, 2) @default(0)
+  commissionPercent Decimal        @db.Decimal(5, 2)
+  commissionBase    CommissionBase @default(net)
+  createdById       String
+  createdBy         User           @relation("CreatedByUser", fields: [createdById], references: [id])
+  createdAt         DateTime       @default(now())
+
+  @@index([date, vehicleId])
+  @@index([employeeId])
+  @@map("entries")
+}
