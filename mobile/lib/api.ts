@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://fleet-pearl-psi.vercel.app';
 
 interface RequestOptions {
   method?: string;
